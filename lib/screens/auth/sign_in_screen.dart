@@ -41,7 +41,9 @@ class _SignInScreenState extends State<SignInScreen> {
                   ? 150
                   : MediaQuery.of(context).size.height / 2 - 60,
               left: MediaQuery.of(context).size.width / 2 - 60,
-              child: const Text("문해달")),
+              child: const Center(
+                child: Text("문해달"),
+              )),
           Center(
             child: AnimatedOpacity(
               duration: const Duration(seconds: 2),
