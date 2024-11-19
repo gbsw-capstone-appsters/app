@@ -36,7 +36,7 @@ class UserProfile extends StatelessWidget {
             Text(
               greetingMessage, // 인사말
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 color: Colors.grey[700],
               ),
             ),

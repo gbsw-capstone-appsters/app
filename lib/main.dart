@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gbsw_capstone_appsters/screens/profile/profile_screen.dart';
+import 'package:gbsw_capstone_appsters/screens/auth/sign_in_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Paperlogy',
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const ProfileScreen(),
+      home: const SignInScreen(),
     );
   }
 }
