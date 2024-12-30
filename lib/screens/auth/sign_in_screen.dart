@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:gbsw_capstone_appsters/screens/auth/notificatoinbar/notification_bar.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gbsw_capstone_appsters/const/color.dart';
+import 'package:gbsw_capstone_appsters/screens/auth/sign_up_screen.dart';
 import 'package:gbsw_capstone_appsters/screens/navigator.dart';
-import 'package:gbsw_capstone_appsters/widgets/custom_button.dart';
-import 'package:gbsw_capstone_appsters/widgets/custom_form_feild.dart';
-import 'package:gbsw_capstone_appsters/widgets/custom_text_button.dart';
+import 'package:gbsw_capstone_appsters/widget/custom_button.dart';
+import 'package:gbsw_capstone_appsters/widget/custom_text_form_field.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -13,118 +18,156 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final TextEditingController _idController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final String message = '개발 단계입니다.';
+  bool _isLoading = false;
 
-  // 애니메이션 상태
-  bool _logoAnimation = false;
-  bool _formAnimation = false;
+  Future<void> _sign() async {
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
 
-  @override
-  void initState() {
-    super.initState();
+    // 입력 유효성 검사
+    if (email.length < 6 || email.length > 60) {
+      _showSnackBar('이메일은 6자 이상 60자 이하로 입력해주세요.');
+      return;
+    }
 
-    // 로고 애니메이션 시작
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _logoAnimation = true;
-        });
+    final emailRegExp = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailRegExp.hasMatch(email)) {
+      _showSnackBar('이메일 형식이 올바르지 않습니다.');
+      return;
+    }
 
-        // 로고 애니메이션 완료 후 로그인 폼 애니메이션 시작
-        Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) {
-            setState(() {
-              _formAnimation = true;
-            });
-          }
-        });
+    if (password.length < 8 || password.length > 20) {
+      _showSnackBar('비밀번호는 8~20자여야 합니다.');
+      return;
+    }
+    if (password.contains(' ')) {
+      _showSnackBar('비밀번호에 공백이 포함될 수 없습니다.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    // dotenv에서 서버 URL 불러오기
+    final String? baseUrl = dotenv.env['SERVER_URL'];
+    const String endpoint = '/auth/signin';
+    final String url = '$baseUrl$endpoint';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+
+      if (response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+
+        if (responseData['accessToken'] != null) {
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('accessToken', responseData['accessToken']);
+        }
+
+        _showSnackBar('로그인 성공');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigator()),
+        );
+      } else {
+        final errorData = jsonDecode(response.body);
+        _showSnackBar('Error: ${errorData['message'] ?? '로그인 실패'}');
       }
-    });
+    } catch (e) {
+      _showSnackBar('네트워크 오류가 발생했습니다: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    // 현재 표시 중인 SnackBar 닫기
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 1),
+          backgroundColor: AppColors.primaryColor,
+          content: Text(message),
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 로고 애니메이션
-          AnimatedPositioned(
-            duration: const Duration(seconds: 1),
-            curve: Curves.easeInOut,
-            top: _logoAnimation ? 150 : screenHeight / 2 - 100, // 위로 이동
-            left: 0,
-            right: 0,
-            child: AnimatedScale(
-              scale: _logoAnimation ? 1.5 : 1.0, // 크기 변경
-              duration: const Duration(seconds: 1),
-              curve: Curves.easeInOut,
-              child: Image.asset(
-                'assets/images/logo_black.png',
-                width: 200,
-                height: 200,
-              ),
-            ),
-          ),
-
-          // 로그인 폼 애니메이션
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 100),
-            child: AnimatedOpacity(
-              duration: const Duration(seconds: 1),
-              opacity: _formAnimation ? 1.0 : 0.0, // 투명도 변경
+    return ScreenUtilInit(
+      designSize: const Size(360, 690),
+      minTextAdapt: true,
+      builder: (context, child) {
+        return Scaffold(
+          body: SingleChildScrollView(
+            child: Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: NotificationBar(
-                        message: message,
+                    SizedBox(height: 90.h),
+                    Image.asset(
+                      "assets/images/logo.png",
+                      width: 180.w,
+                      height: 180.h,
+                    ),
+                    Text(
+                      '문해달',
+                      style: TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 50.sp,
                       ),
                     ),
+                    SizedBox(height: 20.h),
                     CustomTextFormField(
-                      hintText: '아이디',
-                      controller: _idController,
+                      controller: _emailController,
+                      labelText: '이메일',
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 20.h),
                     CustomTextFormField(
-                      hintText: '비밀번호',
                       controller: _passwordController,
-                      obscureText: true,
+                      obscuureText: true,
+                      labelText: '비밀번호',
                     ),
-                    const SizedBox(height: 15),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CustomButton(
-                        color: Colors.black,
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => MainNaviator()),
-                          );
-                        },
-                        child: const Text(
-                          "로그인",
-                          style: TextStyle(
-                            color: Colors.white,
+                    SizedBox(height: 20.h),
+                    _isLoading
+                        ? const CircularProgressIndicator()
+                        : CustomButton(
+                            text: '로그인',
+                            onPressed: _sign,
                           ),
+                    SizedBox(height: 10.h),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SignUpScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        '계정이 없나요?',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 18.sp,
                         ),
                       ),
                     ),
-                    CustomTextButton(text: '회원가입하기'),
                   ],
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
